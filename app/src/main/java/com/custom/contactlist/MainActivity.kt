@@ -2,8 +2,10 @@ package com.custom.contactlist
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
+import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
 import android.util.Log
@@ -17,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -63,77 +66,87 @@ fun ContactsScreen() {
         )
     }
 
-    var showPermissionRationale by remember { mutableStateOf(false) }
     var contacts by remember { mutableStateOf<List<Contact>?>(null) }
-    var selectedContact by remember { mutableStateOf<Contact?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         hasPermission = granted
-        showPermissionRationale = !granted
     }
-
 
     LaunchedEffect(hasPermission) {
         if (hasPermission) {
+            isLoading = true
             contacts = withContext(Dispatchers.IO) { context.fetchAllContacts() }
-            showPermissionRationale = false
+            isLoading = false
         } else {
             contacts = null
         }
     }
 
-    Scaffold { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues)) {
-            when {
-                !hasPermission -> {
-                    if (showPermissionRationale) {
-                        PermissionDeniedView { permissionLauncher.launch(Manifest.permission.READ_CONTACTS) }
-                    } else {
-                        RequestPermissionView { permissionLauncher.launch(Manifest.permission.READ_CONTACTS) }
-                    }
-                }
-                contacts == null -> {
-                    CircularProgressIndicator(modifier = Modifier.padding(16.dp))
-                }
-                contacts.isNullOrEmpty() -> {
-                    Text(
-                        text = stringResource(R.string.no_contacts_found),
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-                else -> {
-                    ContactsList(contacts = contacts!!, onContactClick = { selectedContact = it })
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        when {
+            !hasPermission -> {
+                PermissionDeniedView {
+                    permissionLauncher.launch(Manifest.permission.READ_CONTACTS)
                 }
             }
-
-            selectedContact?.let {
-                ContactDetailsDialog(contact = it, onDismiss = { selectedContact = null })
+            isLoading -> {
+                CircularProgressIndicator()
+            }
+            contacts != null -> {
+                ContactsList(contacts = contacts!!)
             }
         }
     }
 }
 
 @Composable
-fun ContactsList(contacts: List<Contact>, onContactClick: (Contact) -> Unit) {
+fun ContactsList(contacts: List<Contact>) {
+    val context = LocalContext.current
+
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        item {
-            Text(
-                text = stringResource(R.string.contact_list_header),
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp, horizontal = 16.dp),
-//                color = MaterialTheme.colorScheme.onPrimary
-            )
-        }
-        items(contacts) { contact ->
-            ContactListItem(contact = contact, onClick = { onContactClick(contact) })
-            Divider()
+        if (contacts.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillParentMaxHeight(0.8f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = stringResource(R.string.no_contacts_found))
+                }
+            }
+        } else {
+            item {
+                Text(
+                    text = stringResource(R.string.contacts_count, contacts.size),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                )
+            }
+
+            items(contacts) { contact ->
+                ContactListItem(contact = contact) {
+                    contact.phoneNumber?.let { phone ->
+                        val intent = Intent(Intent.ACTION_DIAL).apply {
+                            data = Uri.parse("tel:$phone")
+                        }
+                        context.startActivity(intent)
+                    }
+                }
+                HorizontalDivider()
+            }
         }
     }
 }
+
 
 @Composable
 fun ContactListItem(contact: Contact, onClick: () -> Unit) {
@@ -142,30 +155,11 @@ fun ContactListItem(contact: Contact, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(16.dp)
+            .padding(16.dp),
+        style = MaterialTheme.typography.bodyLarge
     )
 }
 
-@Composable
-fun ContactDetailsDialog(contact: Contact, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(android.R.string.ok))
-            }
-        },
-        title = {
-            Text(text = contact.name ?: stringResource(R.string.unknown_contact))
-        },
-        text = {
-            Column {
-                Text("${stringResource(R.string.phone_number)}: ${contact.phoneNumber ?: "-"}")
-                Text("${stringResource(R.string.email)}: ${contact.email ?: "-"}")
-            }
-        }
-    )
-}
 
 @Composable
 fun RequestPermissionView(onRequestPermission: () -> Unit) {
