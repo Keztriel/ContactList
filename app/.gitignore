@@ -1,1 +1,10 @@
+.idea/
+*.iml
+.gradle/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+cmakeBuild/
 /build
+capture/
