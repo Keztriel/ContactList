@@ -152,14 +152,29 @@ fun ContactsList(contacts: List<Contact>) {
 
 @Composable
 fun ContactListItem(contact: Contact, onClick: () -> Unit) {
-    Text(
-        text = contact.name ?: stringResource(R.string.unknown_contact),
+    Row (
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(16.dp),
-        style = MaterialTheme.typography.bodyLarge
-    )
+            .padding(16.dp)
+    ) {
+        Text(
+            text = contact.name ?: stringResource(R.string.unknown_contact),
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier
+                .weight(1f)
+        )
+        contact.phoneNumber?.let { phone ->
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = phone,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .weight(2f)
+            )
+        }
+    }
 }
 
 
