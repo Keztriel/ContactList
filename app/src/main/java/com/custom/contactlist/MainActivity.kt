@@ -82,6 +82,7 @@ fun ContactsScreen() {
             isLoading = false
         } else {
             contacts = null
+            permissionLauncher.launch(Manifest.permission.READ_CONTACTS)
         }
     }
 
@@ -135,8 +136,9 @@ fun ContactsList(contacts: List<Contact>) {
             items(contacts) { contact ->
                 ContactListItem(contact = contact) {
                     contact.phoneNumber?.let { phone ->
+                        val cleanPhone = phone.replace(Regex("[^0-9+]"), "")
                         val intent = Intent(Intent.ACTION_DIAL).apply {
-                            data = Uri.parse("tel:$phone")
+                            data = Uri.parse("tel:$cleanPhone")
                         }
                         context.startActivity(intent)
                     }
